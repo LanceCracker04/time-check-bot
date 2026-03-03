@@ -23,10 +23,11 @@ def tell_time():
     h = str(int(now.strftime("%I")))
     m = int(now.strftime("%M"))
 
-    # Pre-load sounds into a list so they are ready to fire instantly
-    playlist = []
-    playlist.append(pygame.mixer.Sound("sounds/intro.mp3"))
-    playlist.append(pygame.mixer.Sound(f"sounds/hours/{h}.mp3"))
+    # 1. Load sounds for instant playback
+    playlist = [
+        pygame.mixer.Sound("sounds/intro.mp3"),
+        pygame.mixer.Sound(f"sounds/hours/{h}.mp3"),
+    ]
 
     if 0 < m < 10:
         playlist.append(pygame.mixer.Sound("sounds/minutes/0.mp3"))
@@ -36,13 +37,11 @@ def tell_time():
 
     playlist.append(pygame.mixer.Sound("sounds/sir.mp3"))
 
-    # Play with Overlap (Removes the gaps)
+    # 2. Play with "Overlap" to remove the robotic gaps
     for snd in playlist:
         snd.play()
-        # We start the NEXT word 0.1 seconds before the current one ends
-        # This makes it sound like a natural human sentence
+        # Overlap by 0.1s to make it sound human
         time.sleep(max(0, snd.get_length() - 0.1))
-
 
 # 2. THE EAR (Google Engine - Always Active)
 recognizer = sr.Recognizer()
