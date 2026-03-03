@@ -3,6 +3,8 @@ import pygame
 from datetime import datetime
 import time
 import os
+import asyncio
+import edge_tts
 
 # initialize the speech recognizer as a global object so it can be
 # referenced inside listener functions without scope errors
@@ -26,33 +28,41 @@ def play_audio(file_path):
 
 def tell_time():
     now = datetime.now()
-    h = str(int(now.strftime("%I")))
-    m = int(now.strftime("%M"))
+    # Format: "7:05" becomes "Seven Oh Five"
+    h = now.strftime("%I")
+    m = now.strftime("%M")
 
-    print(f"J.A.R.V.I.S.: It is {h}:{m:02d} Sir.")
+    # Construct the full natural sentence
+    time_text = f"It is {int(h)} {m} Sir."
+    if 0 < int(m) < 10:
+        time_text = f"It is {int(h)} oh {int(m)} Sir."
 
-    # 1. This list builds the "Sentence" in the computer's memory first
-    # This is why the robot pauses will disappear.
-    sentence = []
-    sentence.append(pygame.mixer.Sound("sounds/intro.mp3"))
-    sentence.append(pygame.mixer.Sound(f"sounds/hours/{h}.mp3"))
+    print(f"J.A.R.V.I.S.: {time_text}")
 
-    if 0 < m < 10:
-        # LOGIC: We explicitly point to your new 0.mp3 here
-        if os.path.exists("sounds/minutes/0.mp3"):
-            sentence.append(pygame.mixer.Sound("sounds/minutes/0.mp3"))
-        sentence.append(pygame.mixer.Sound(f"sounds/minutes/{m}.mp3"))
-    elif m >= 10:
-        sentence.append(pygame.mixer.Sound(f"sounds/minutes/{m}.mp3"))
+    # Generate audio synchronously
+    try:
+        # Ensure sounds directory exists
+        os.makedirs("sounds", exist_ok=True)
 
-    sentence.append(pygame.mixer.Sound("sounds/sir.mp3"))
+        # Stop and unload any currently playing music to avoid file lock
+        pygame.mixer.music.stop()
+        pygame.mixer.music.unload()
+        time.sleep(0.2)  # Small delay to release file lock
 
-    # 2. THE PLAYBACK (No Pauses)
-    for snd in sentence:
-        snd.play()
-        # We subtract 0.1s from the length to "stitch" the words together
-        # This is the 'Freelancer' fix for the slow robot voice.
-        time.sleep(max(0, snd.get_length() - 0.1))
+        communicate = edge_tts.Communicate(time_text, "en-GB-RyanNeural")
+        # Use asyncio to run the async save method
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(communicate.save("sounds/current_time.mp3"))
+        loop.close()
+
+        # Play the audio file using Sound channel instead of music player
+        sound = pygame.mixer.Sound("sounds/current_time.mp3")
+        channel = sound.play()
+        while channel.get_busy():
+            time.sleep(0.05)
+    except Exception as e:
+        print(f"Error speaking: {e}")
 
 
 def listen_for_command():
